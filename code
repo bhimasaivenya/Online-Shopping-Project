@@ -1,0 +1,275 @@
+#include <iostream>
+#include <vector>
+#include <string>
+using namespace std;
+class ProductBase {
+public:
+    virtual void display() {
+        // cout << "Product details...\n";
+    }
+    virtual ~ProductBase() {
+        // cout << "ProductBase destroyed\n";
+    }
+};
+class Product : public ProductBase {
+private:
+    int id;
+    string name;
+    double price;
+    int stock;
+public:
+    Product(int id = 0, string name = "", double price = 0, int stock = 0) {
+        this->id = id;
+        this->name = name;
+        this->price = price;
+        this->stock = stock;
+    }
+    Product& operator=(const Product& p) {
+        id = p.id;
+        name = p.name;
+        price = p.price;
+        stock = p.stock;
+        return *this;
+    }
+    void display() override {
+        cout << id << ". " << name 
+             << " | Rs." << price
+             << " | Stock: " << stock << endl;
+    }
+
+    int getId() { return id; }
+    string getName() { return name; }
+    double getPrice() { return price; }
+    int getStock() { return stock; }
+
+    void reduceStock(int q) { stock -= q; }
+
+    ~Product() {
+        // cout << "Product '" << name << "' destroyed\n";
+    }
+};
+
+class User {
+protected:
+    string username;
+    string password;
+    bool isAdmin;
+
+public:
+    User(string u = "", string p = "", bool admin = false) {
+        username = u;
+        password = p;
+        isAdmin = admin;
+    }
+
+    virtual void menu() {
+        cout << "Basic user menu\n";
+    }
+
+    bool loginCheck(string u, string p) {
+        return (u == username && p == password);
+    }
+
+    bool checkAdmin() { return isAdmin; }
+
+    string getUser() { return username; }
+
+    virtual ~User() {
+        // cout << "User '" << username << "' destroyed\n";
+    }
+};
+
+class Admin : public User {
+public:
+    Admin(string u, string p) : User(u, p, true) {}
+
+    void menu() override {
+        cout << "\n=== ADMIN MENU ===\n";
+        cout << "1. Add Product\n2. View Products\n3. Logout\n";
+    }
+};
+
+class Customer : public User {
+public:
+    Customer(string u, string p) : User(u, p, false) {}
+
+    void menu() override {
+        cout << "\n=== CUSTOMER MENU ===\n";
+        cout << "1. View Products\n2. Add to Cart\n3. View Cart\n4. Checkout\n5. Logout\n";
+    }
+};
+void welcome() { cout << "\nWelcome!\n"; }
+void welcome(string user) { cout << "\nWelcome, " << user << "!\n"; }
+
+class ShoppingSystem {
+private:
+    vector<Product> products;
+    vector<User*> users;        
+    vector<Product> cart;
+    User* currentUser = nullptr;
+
+public:
+    ShoppingSystem() {
+        products.push_back(Product(1, "Laptop", 45000, 10));
+        products.push_back(Product(2, "Phone", 25000, 15));
+        products.push_back(Product(3, "Earphones", 999, 30));
+
+        users.push_back(new Admin("admin", "admin123"));
+        users.push_back(new Customer("user", "user123"));
+
+        welcome();  
+    }
+
+    void viewProducts() {
+        cout << "\n=== PRODUCT LIST ===\n";
+        for (auto &p : products) {
+            p.display();
+        }
+    }
+
+    void addProduct() {
+        string name;
+        double price;
+        int stock;
+
+        cout << "\nEnter product name: ";
+        cin >> name;
+        cout << "Enter price: ";
+        cin >> price;
+        cout << "Enter stock: ";
+        cin >> stock;
+
+        int id = products.size() + 1;
+        products.push_back(Product(id, name, price, stock));
+
+        cout << "Product added!\n";
+    }
+
+    void login() {
+        string u, p;
+        cout << "Username: ";
+        cin >> u;
+        cout << "Password: ";
+        cin >> p;
+
+        for (auto user : users) {
+            if (user->loginCheck(u, p)) {
+                currentUser = user;
+                welcome(u);
+                runMenu();
+                return;
+            }
+        }
+        cout << "Invalid login!\n";
+    }
+
+    void addToCart() {
+        int id, qty;
+
+        viewProducts();
+        cout << "\nEnter product ID: ";
+        cin >> id;
+        cout << "Enter quantity: ";
+        cin >> qty;
+
+        for (auto &p : products) {
+            if (p.getId() == id) {
+                if (p.getStock() >= qty) {
+                    Product temp = p;
+                    cart.push_back(temp);
+
+                    p.reduceStock(qty);
+                    cout << "Added to cart!\n";
+                    return;
+                } else {
+                    cout << "Not enough stock!\n";
+                    return;
+                }
+            }
+        }
+
+        cout << "Product not found!\n";
+    }
+
+    void viewCart() {
+        if (cart.empty()) {
+            cout << "\nCart is empty!\n";
+            return;
+        }
+
+        cout << "\n=== CART ===\n";
+        double total = 0;
+
+        for (auto &c : cart) {
+            c.display();
+            total += c.getPrice();
+        }
+
+        cout << "Total Amount: Rs." << total << endl;
+    }
+
+    void checkout() {
+        if (cart.empty()) {
+            cout << "\nCart empty!\n";
+            return;
+        }
+
+        viewCart();
+        cout << "\nConfirm purchase? (1=Yes / 0=No): ";
+        int ch;
+        cin >> ch;
+
+        if (ch == 1) {
+            cout << "\n=== BILLING ===\n";
+            double total = 0;
+
+            for (auto &c : cart) {
+                cout << c.getName() << " - Rs." << c.getPrice() << endl;
+                total += c.getPrice();
+            }
+
+            cout << "-------------------------\n";
+            cout << "TOTAL AMOUNT: Rs." << total << endl;
+            cout << "Thank you for shopping!\n";
+
+            cart.clear();
+        }
+    }
+
+    void runMenu() {
+        while (true) {
+            currentUser->menu();
+
+            int choice;
+            cout << "Enter choice: ";
+            cin >> choice;
+
+            if (currentUser->checkAdmin()) {
+                if (choice == 1) addProduct();
+                else if (choice == 2) viewProducts();
+                else if (choice == 3) break;
+                else cout << "Invalid!\n";
+            }
+            else {
+                if (choice == 1) viewProducts();
+                else if (choice == 2) addToCart();
+                else if (choice == 3) viewCart();
+                else if (choice == 4) checkout();
+                else if (choice == 5) break;
+                else cout << "Invalid!\n";
+            }
+        }
+    }
+
+    ~ShoppingSystem() {
+        cout << "\nSystem shutting down...\n";
+        for (auto u : users)
+            delete u;
+    }
+};
+
+int main() {
+    ShoppingSystem s;
+    s.login();
+    return 0;
+}
